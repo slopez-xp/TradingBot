@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-binance
+pandas
+pandas-ta
+python-dotenv
+pydantic
+pydantic-settings
+sqlalchemy
+psycopg2-binary
+requests

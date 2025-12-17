@@ -1,0 +1,43 @@
+services:
+  api:
+    build: .
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    hostname: api
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=trading_bot_db
+    volumes:
+      - .:/app
+
+  db:
+    image: postgres:13-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=trading_bot_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  
+  scheduler: 
+    build: . 
+    restart: always
+    command: python src/scheduler.py
+    env_file:
+      - .env
+    environment:
+      # Definimos la URL de la API usando el hostname que definimos arriba
+      API_URL: http://api:8000/trade/execute
+    depends_on:
+      - api # Asegura que la API esté corriendo antes que el scheduler
+
+volumes:
+  postgres_data:

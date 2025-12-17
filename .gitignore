@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+venv/
+fastapi-env/
+.env
+.pytest_cache/
