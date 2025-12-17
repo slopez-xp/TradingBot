@@ -50,15 +50,21 @@ def auto_trade(db: Session = Depends(get_db)):
     """
     Analiza el símbolo configurado, ejecuta la orden y guarda el registro.
     """
-    # 1. Usar el símbolo y la cantidad de la configuración
+    # 1. Usar el símbolo de la configuración
     symbol = settings.trade_symbol
-    quantity_to_trade = settings.trade_quantity
 
-    # 2. Ejecutar estrategia
+    # 2. Ejecutar estrategia de análisis
     analysis = check_and_decide(symbol)
+    
+    # Manejar errores de la API o del análisis
+    if "error" in analysis:
+        raise HTTPException(status_code=500, detail=f"Fallo en el análisis: {analysis['error']}")
+
     decision = analysis["decision"]
     price = float(analysis["last_close_price"])
-    
+    quantity_to_trade = analysis["calculated_quantity"] # CORRECCIÓN: Usar cantidad calculada
+    current_pos_amt = analysis["current_position_amount"]
+
     # 3. Si es HOLD, no hacemos nada
     if decision == "HOLD":
         return {
@@ -66,13 +72,18 @@ def auto_trade(db: Session = Depends(get_db)):
             "data": analysis
         }
 
-    # 4. Ejecutar la orden real con la cantidad configurada
-    execution_result = execute_trade(symbol, decision, quantity_to_trade)
+    # 4. Ejecutar la orden real con la cantidad y decisión del análisis
+    # CORRECCIÓN: Pasar todos los argumentos necesarios a execute_trade
+    execution_result = execute_trade(symbol, decision, quantity_to_trade, current_pos_amt)
 
     if not execution_result:
+        # Esto puede pasar si hay un error no capturado o una condición que no retorna nada
+        raise HTTPException(status_code=500, detail="Fallo la ejecución del trade por una razón desconocida.")
+
+    if execution_result.get("status") == "ignored":
         # Esto sucede si la lógica de trading decide no operar (ej. ya en posición)
         return {
-            "status": "Trade execution condition not met (e.g., already in position).",
+            "status": f"Trade execution condition not met: {execution_result.get('reason')}",
             "data": analysis
         }
 
@@ -83,10 +94,10 @@ def auto_trade(db: Session = Depends(get_db)):
     # 5. Si es BUY o SELL y la ejecución fue exitosa, guardamos en la BD
     new_trade = Trade(
         symbol=symbol,
-        strategy="SMA_CROSSOVER_RSI", # Estrategia actualizada
+        strategy=analysis["strategy"],
         decision=decision,
         price=price,
-        quantity=quantity_to_trade, # La cantidad configurada
+        quantity=quantity_to_trade, # CORRECCIÓN: Usar la cantidad correcta
     )
     
     db.add(new_trade)
@@ -96,7 +107,7 @@ def auto_trade(db: Session = Depends(get_db)):
     return {
         "status": f"Trade Executed on Binance ({decision}) & Saved to DB",
         "trade_id": new_trade.id,
-        "binance_response": execution_result, # Muestra la respuesta de Binance
+        "binance_response": execution_result,
         "data": analysis
     }
 
@@ -105,8 +116,5 @@ def get_trades(db: Session = Depends(get_db)):
     """
     Recupera todas las operaciones guardadas en la Base de Datos.
     """
-    # Consulta la base de datos para obtener todos los registros de la tabla Trade
     trades = db.query(Trade).all()
-    
-    # Devuelve la lista de operaciones
     return trades

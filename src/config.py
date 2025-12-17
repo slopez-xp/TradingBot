@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
+from typing import Literal
 
 class Settings(BaseSettings):
     # --- Binance API Credentials ---
@@ -8,9 +9,19 @@ class Settings(BaseSettings):
 
     # --- Trading Parameters ---
     trade_symbol: str = "BTCUSDT"
-    trade_quantity: float = 0.003
     trade_interval: str = "4h"
     trade_sl_percentage: float = 0.02 # Porcentaje de Stop-Loss (ej. 0.02 = 2%)
+    
+    # --- Strategy Selection ---
+    # Estrategia a utilizar: "conservative" (cantidad fija) o "aggressive" (porcentaje de riesgo)
+    trading_strategy: Literal["conservative", "aggressive"] = "conservative"
+
+    # --- Conservative Strategy Parameters ---
+    trade_quantity: float = 0.003 # Cantidad fija para la estrategia conservadora
+
+    # --- Aggressive Strategy Parameters ---
+    trade_risk_percentage: float = 1.0 # Porcentaje del balance a arriesgar (ej. 1.0 = 1%)
+    trade_max_holding_hours: int = 24 # Horas máximas para mantener una posición
 
     # --- Server Configuration ---
     uvicorn_host: str = "0.0.0.0"
