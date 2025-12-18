@@ -9,10 +9,9 @@ services:
     depends_on:
       - db
     hostname: api
+    # Ensure the API connects to the 'db' service within Docker
     environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=trading_bot_db
+      POSTGRES_HOST: db 
     volumes:
       - .:/app
 
@@ -23,7 +22,7 @@ services:
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=trading_bot_db
     ports:
-      - "5432:5432"
+      - "5432:5432" # Exposed so that the monitor on the host can connect, or for external tools
     volumes:
       - postgres_data:/var/lib/postgresql/data
   
@@ -34,10 +33,28 @@ services:
     env_file:
       - .env
     environment:
-      # Definimos la URL de la API usando el hostname que definimos arriba
-      API_URL: http://api:8000/trade/execute
+      # Define the API URLs using the 'api' hostname
+      API_URL_EXECUTE: http://api:8000/trade/execute
+      API_URL_TSL: http://api:8000/trade/update-tsl
+      POSTGRES_HOST: db # Ensure the scheduler also uses the 'db' service
     depends_on:
-      - api # Asegura que la API esté corriendo antes que el scheduler
+      - api # Ensures the API is running before the scheduler
+
+  monitor: # New service for the monitor
+    build: .
+    restart: always
+    command: python monitor.py
+    env_file:
+      - .env
+    environment:
+      # The monitor connects to the Postgres host. If running in Docker, it should also use 'db'.
+      # But the monitor.py script overwrites this to 'localhost' if run directly on the host.
+      # Here we define it in case we want the monitor to run inside Docker and connect to 'db'.
+      POSTGRES_HOST: db 
+    depends_on:
+      - db # The monitor depends on the DB being ready
+    volumes:
+      - .:/app
 
 volumes:
   postgres_data:

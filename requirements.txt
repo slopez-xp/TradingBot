@@ -9,3 +9,4 @@ pydantic-settings
 sqlalchemy
 psycopg2-binary
 requests
+rich

@@ -2,36 +2,48 @@ import requests
 import time
 import os
 
-# La URL completa, incluido el endpoint, se obtiene de la variable de entorno
-# definida en docker-compose.yml. El valor por defecto es para pruebas locales.
-API_URL = os.getenv("API_URL", "http://localhost:8000/trade/execute") 
+# API endpoint URLs
+API_URL_EXECUTE = os.getenv("API_URL_EXECUTE", "http://localhost:8000/trade/execute") 
+API_URL_TSL = os.getenv("API_URL_TSL", "http://localhost:8000/trade/update-tsl") 
 
 def run_scheduler():
-    print("--- Scheduler iniciado. Buscando oportunidades de trading... ---")
+    print("--- Scheduler started. Looking for trading opportunities... ---")
     while True:
         try:
-            print(f"\n[{time.strftime('%H:%M:%S')}] Pidiendo análisis y ejecución en: {API_URL}")
-            
-            # Hacer la llamada HTTP a la API (ya no se necesita el símbolo)
-            response = requests.get(API_URL, timeout=30)
-            response.raise_for_status() # Lanza un error para códigos 4xx/5xx
-
+            # 1. Main call to analyze and execute trades
+            print(f"\n[{time.strftime('%H:%M:%S')}] Requesting analysis and execution at: {API_URL_EXECUTE}")
+            response = requests.get(API_URL_EXECUTE, timeout=30)
+            response.raise_for_status() # Raise an error for 4xx/5xx codes
             result = response.json()
             
-            # Imprimir el resultado
             if 'data' in result and 'decision' in result['data']:
-                print(f"Decisión: {result['data']['decision']}")
+                print(f"Decision: {result['data']['decision']}")
             if 'status' in result:
-                print(f"Estatus: {result['status']}")
+                print(f"Execution status: {result['status']}")
 
         except requests.exceptions.RequestException as e:
-            print(f"Error al llamar a la API: {e}")
-            
+            print(f"Error calling execution API: {e}")
         except Exception as e:
-            print(f"Ocurrió un error inesperado: {e}")
+            print(f"An unexpected error occurred during execution: {e}")
 
-        # Esperar 60 segundos (ajusta esto si quieres más o menos frecuencia)
-        time.sleep(60) 
+        # Short pause for the system to process the order before checking TSL
+        time.sleep(5)
+
+        try:
+            # 2. Call to update the Trailing Stop-Loss
+            print(f"[{time.strftime('%H:%M:%S')}] Checking Trailing Stop-Loss at: {API_URL_TSL}")
+            tsl_response = requests.get(API_URL_TSL, timeout=15)
+            tsl_response.raise_for_status()
+            tsl_result = tsl_response.json()
+            print(f"TSL status: {tsl_result.get('status', 'unknown')}")
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error calling TSL API: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred in TSL: {e}")
+
+        # Wait for the rest of the cycle (total ~60 seconds)
+        time.sleep(55) 
 
 if __name__ == "__main__":
     run_scheduler()
