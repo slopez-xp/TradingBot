@@ -30,7 +30,7 @@ This is a configurable and automated trading bot for Binance Futures. It uses a 
 
 1.  **Clone the repository:**
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/slopez-xp/TradingBot
     cd TradingBot
     ```
 
